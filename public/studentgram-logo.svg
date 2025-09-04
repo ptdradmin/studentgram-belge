@@ -1,0 +1,20 @@
+<svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ec4899;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ea580c;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Logo Icon Background -->
+  <rect x="2" y="8" width="24" height="24" rx="6" fill="url(#gradient)"/>
+  
+  <!-- Graduation Cap Icon -->
+  <path d="M14 12L20 10L14 8L8 10L14 12Z" stroke="white" stroke-width="1.5" fill="white"/>
+  <path d="M8 10V16C8 18 10.5 20 14 20C17.5 20 20 18 20 16V10" stroke="white" stroke-width="1.5" fill="none"/>
+  <path d="M20 10V14" stroke="white" stroke-width="1.5"/>
+  
+  <!-- StudentGram Text -->
+  <text x="32" y="16" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="url(#gradient)">Student</text>
+  <text x="32" y="28" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="url(#gradient)">Gram</text>
+</svg>

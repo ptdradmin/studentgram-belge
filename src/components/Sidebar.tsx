@@ -39,16 +39,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, currentUser }
     <div className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-50 flex flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <div 
-            className="h-8 w-8 rounded-lg flex items-center justify-center"
-            style={{background: 'var(--gradient-primary)'}}
-          >
-            <GraduationCap className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent">
-            StudentGram
-          </span>
+        <div className="flex items-center">
+          <img 
+            src="/studentgram-logo.svg" 
+            alt="StudentGram Logo" 
+            className="h-10 w-auto"
+          />
         </div>
       </div>
 
