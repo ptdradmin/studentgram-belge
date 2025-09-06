@@ -361,6 +361,8 @@ const CreatePost: React.FC<CreatePostProps> = ({ currentUser, onPostCreated }) =
               accept="image/*"
               onChange={handleImageSelect}
               className="hidden"
+              aria-label="Sélectionner une image à joindre au post"
+              title="Sélectionner une image à joindre au post"
             />
             
             <Button type="button" variant="ghost" size="sm" disabled>

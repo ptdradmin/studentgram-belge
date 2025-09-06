@@ -1,4 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
+import { getApiUrl } from './fetcher';
 
 // Supabase configuration
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co'
@@ -15,30 +16,31 @@ export const isSupabaseConfigured = () => {
 }
 
 // Database types for StudentGram
-export type Profile = {
-  id: string
-  email: string
-  fullName: string
-  username: string
-  school: string
-  level: 'secondary' | 'higher' | 'university'
-  field?: string
-  graduationYear?: number
-  classYear?: string
-  studentId?: string
-  isVerified: boolean
-  verificationStatus: 'pending' | 'verified' | 'rejected'
-  isMinor: boolean
-  parentEmail?: string
-  bio?: string
-  avatarUrl?: string
-  coverUrl?: string
-  accountPrivate: boolean
-  allowMessages: boolean
-  showEmail: boolean
-  createdAt: string
-  updatedAt: string
-  lastActive: string
+export interface Profile {
+  id: string;
+  email: string;
+  fullName: string;
+  username: string;
+  school: string;
+  level: string;
+  field: string;
+  graduationYear: number;
+  classYear: string;
+  studentId: string;
+  isMinor: boolean;
+  parentEmail?: string;
+  isVerified: boolean;
+  verificationStatus: 'pending' | 'verified' | 'rejected';
+  accountPrivate: boolean;
+  allowMessages: boolean;
+  showEmail: boolean;
+  bio: string;
+  avatarUrl?: string;
+  coverUrl?: string;
+  role?: 'user' | 'admin' | 'moderator' | 'verified';
+  createdAt: string;
+  updatedAt: string;
+  lastActive: string;
 }
 
 export type Post = {

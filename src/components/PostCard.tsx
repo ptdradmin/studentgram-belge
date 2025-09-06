@@ -10,6 +10,7 @@ import {
   Clock,
   MapPin
 } from 'lucide-react';
+import OptimizedImage from './OptimizedImage';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -191,11 +192,12 @@ const PostCard: React.FC<PostCardProps> = ({
           
           {post.imageUrl && (
             <div className="rounded-lg overflow-hidden bg-muted">
-              <img 
+              <OptimizedImage 
                 src={post.imageUrl} 
                 alt="Post content" 
                 className="w-full h-auto object-cover max-h-96"
-                loading="lazy"
+                placeholder="blur"
+                priority={false}
               />
             </div>
           )}

@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { GraduationCap, Shield, Users, Mail } from 'lucide-react';
+import { GraduationCap, Shield, Users, Mail, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase, signUp, signIn, isSupabaseConfigured } from '@/lib/supabase';
+import { useFormValidation, commonValidationRules, ValidationSchema } from '@/hooks/useFormValidation';
+import { useLanguage, t } from '@/lib/i18n';
 
 interface AuthModalProps {
   open: boolean;
@@ -21,6 +23,26 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('signin');
   const { toast } = useToast();
+  const { language } = useLanguage();
+
+  // Validation schemas
+  const signInSchema: ValidationSchema = {
+    email: commonValidationRules.email,
+    password: { required: true, minLength: 1 }
+  };
+
+  const signUpSchema: ValidationSchema = {
+    email: commonValidationRules.email,
+    password: commonValidationRules.password,
+    confirmPassword: { required: true },
+    fullName: commonValidationRules.fullName,
+    username: commonValidationRules.username,
+    school: commonValidationRules.school,
+    level: { required: true }
+  };
+
+  const signInValidation = useFormValidation(signInSchema);
+  const signUpValidation = useFormValidation(signUpSchema);
 
   // Sign In Form State
   const [signInData, setSignInData] = useState({
@@ -49,6 +71,19 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Clear previous errors
+    signInValidation.clearErrors();
+    
+    // Validate form
+    if (!signInValidation.validateForm(signInData)) {
+      toast({
+        title: t('error', language),
+        description: "Veuillez corriger les erreurs dans le formulaire.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (!isSupabaseConfigured()) {
       toast({
         title: "Configuration requise",
@@ -64,9 +99,20 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
       const { data, error } = await signIn(signInData.email, signInData.password);
       
       if (error) {
+        // Handle specific authentication errors
+        let errorMessage = error.message;
+        
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = "Email ou mot de passe incorrect.";
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = "Veuillez confirmer votre email avant de vous connecter.";
+        } else if (error.message.includes('Too many requests')) {
+          errorMessage = "Trop de tentatives. Veuillez réessayer dans quelques minutes.";
+        }
+        
         toast({
           title: "Erreur de connexion",
-          description: error.message,
+          description: errorMessage,
           variant: "destructive"
         });
         return;
@@ -77,11 +123,25 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
         description: "Bienvenue sur StudentGram!"
       });
 
+      // Reset form
+      setSignInData({ email: '', password: '' });
+      signInValidation.clearErrors();
       onOpenChange(false);
-    } catch (error) {
+      
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      
+      let errorMessage = "Une erreur inattendue s'est produite.";
+      
+      if (error?.code === 'NETWORK_ERROR') {
+        errorMessage = "Problème de connexion. Vérifiez votre internet.";
+      } else if (error?.code === 'TIMEOUT') {
+        errorMessage = "La connexion a pris trop de temps. Réessayez.";
+      }
+      
       toast({
-        title: "Erreur",
-        description: "Une erreur inattendue s'est produite.",
+        title: t('error', language),
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -92,36 +152,35 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isSupabaseConfigured()) {
+    // Clear previous errors
+    signUpValidation.clearErrors();
+    
+    // Validate form
+    if (!signUpValidation.validateForm(signUpData)) {
       toast({
-        title: "Configuration requise",
-        description: "Supabase doit être configuré pour l'inscription.",
+        title: t('error', language),
+        description: "Veuillez corriger les erreurs dans le formulaire.",
         variant: "destructive"
       });
-      setLoading(false);
       return;
     }
 
-    setLoading(true);
-
-    // Validation
+    // Additional validations
     if (signUpData.password !== signUpData.confirmPassword) {
       toast({
-        title: "Erreur",
+        title: t('error', language),
         description: "Les mots de passe ne correspondent pas.",
         variant: "destructive"
       });
-      setLoading(false);
       return;
     }
 
     if (!signUpData.acceptTerms) {
       toast({
-        title: "Erreur",
+        title: t('error', language),
         description: "Vous devez accepter les conditions d'utilisation.",
         variant: "destructive"
       });
-      setLoading(false);
       return;
     }
 
@@ -131,76 +190,47 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
         description: "L'email d'un parent est obligatoire pour les mineurs.",
         variant: "destructive"
       });
-      setLoading(false);
       return;
     }
 
+    setLoading(true);
+
     try {
-      const { data, error } = await signUp(signUpData.email, signUpData.password);
+      const { success, error } = await signUp(signUpData.email, signUpData.password, signUpData);
       
-      if (error) {
+      if (!success) {
         toast({
           title: "Erreur d'inscription",
-          description: error.message,
+          description: error || "Une erreur s'est produite lors de l'inscription.",
           variant: "destructive"
         });
         return;
       }
 
-      // Create profile
-      if (data.user) {
-        const profileData = {
-          id: data.user.id,
-          email: signUpData.email,
-          fullName: signUpData.fullName,
-          username: signUpData.username,
-          school: signUpData.school,
-          level: signUpData.level,
-          field: signUpData.field,
-          graduationYear: signUpData.graduationYear,
-          classYear: signUpData.classYear,
-          studentId: signUpData.studentId,
-          isMinor: signUpData.isMinor,
-          parentEmail: signUpData.parentEmail,
-          isVerified: false,
-          verificationStatus: 'pending',
-          accountPrivate: signUpData.isMinor,
-          allowMessages: !signUpData.isMinor,
-          showEmail: false,
-          bio: '',
-          avatarUrl: null,
-          coverUrl: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lastActive: new Date().toISOString()
-        };
-
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([profileData]);
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          toast({
-            title: "Avertissement",
-            description: "Compte créé mais profil non configuré. Veuillez compléter votre profil.",
-            variant: "destructive"
-          });
-        }
-      }
-
-      toast({
-        title: "Inscription réussie!",
-        description: signUpData.isMinor 
-          ? "Ton compte a été créé avec des protections renforcées. Vérification en cours."
-          : "Ton compte étudiant a été créé. Vérification en cours.",
-        variant: "default"
+      // Reset form
+      setSignUpData({
+        email: '',
+        password: '',
+        confirmPassword: '',
+        fullName: '',
+        username: '',
+        school: '',
+        level: '',
+        field: '',
+        graduationYear: new Date().getFullYear(),
+        classYear: '',
+        studentId: '',
+        isMinor: false,
+        parentEmail: '',
+        acceptTerms: false
       });
-
+      signUpValidation.clearErrors();
       onOpenChange(false);
-    } catch (error) {
+      
+    } catch (error: any) {
+      console.error('Sign up error:', error);
       toast({
-        title: "Erreur",
+        title: t('error', language),
         description: "Une erreur inattendue s'est produite.",
         variant: "destructive"
       });
@@ -256,9 +286,20 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
                       type="email"
                       placeholder="ton.email@ecole.be"
                       value={signInData.email}
-                      onChange={(e) => setSignInData(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={(e) => {
+                        setSignInData(prev => ({ ...prev, email: e.target.value }));
+                        signInValidation.clearFieldError('email');
+                      }}
+                      onBlur={() => signInValidation.validateSingleField('email', signInData.email)}
+                      className={signInValidation.errors.email ? 'border-red-500 focus:border-red-500' : ''}
                       required
                     />
+                    {signInValidation.errors.email && (
+                      <div className="flex items-center space-x-1 text-red-600 text-sm mt-1">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>{signInValidation.errors.email}</span>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="signin-password">Mot de passe</Label>
@@ -266,9 +307,20 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
                       id="signin-password"
                       type="password"
                       value={signInData.password}
-                      onChange={(e) => setSignInData(prev => ({ ...prev, password: e.target.value }))}
+                      onChange={(e) => {
+                        setSignInData(prev => ({ ...prev, password: e.target.value }));
+                        signInValidation.clearFieldError('password');
+                      }}
+                      onBlur={() => signInValidation.validateSingleField('password', signInData.password)}
+                      className={signInValidation.errors.password ? 'border-red-500 focus:border-red-500' : ''}
                       required
                     />
+                    {signInValidation.errors.password && (
+                      <div className="flex items-center space-x-1 text-red-600 text-sm mt-1">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>{signInValidation.errors.password}</span>
+                      </div>
+                    )}
                   </div>
                   <Button 
                     type="submit" 

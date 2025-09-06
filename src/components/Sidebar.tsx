@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useLanguage, t } from '@/lib/i18n';
 import { 
   Home, 
   Search, 
@@ -24,15 +25,17 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, currentUser }) => {
+  const { language } = useLanguage();
+  
   const menuItems = [
-    { id: 'home', label: 'Accueil', icon: Home },
-    { id: 'search', label: 'Rechercher', icon: Search },
-    { id: 'explorer', label: 'Explorer', icon: Compass },
-    { id: 'notifications', label: 'Notifications', icon: Heart },
-    { id: 'messages', label: 'Messages', icon: MessageCircle },
-    { id: 'saved', label: 'Enregistrés', icon: Bookmark },
-    { id: 'profile', label: 'Profil', icon: User },
-    { id: 'settings', label: 'Paramètres', icon: Settings }
+    { id: 'home', label: t('home', language), icon: Home },
+    { id: 'search', label: t('search', language), icon: Search },
+    { id: 'explorer', label: t('explore', language), icon: Compass },
+    { id: 'notifications', label: t('notifications', language), icon: Heart },
+    { id: 'messages', label: t('messages', language), icon: MessageCircle },
+    { id: 'saved', label: t('saved', language), icon: Bookmark },
+    { id: 'profile', label: t('profile', language), icon: User },
+    { id: 'settings', label: t('settings', language), icon: Settings }
   ];
 
   return (

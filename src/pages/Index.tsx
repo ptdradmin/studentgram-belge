@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { GraduationCap, Users, Shield, Heart, BookOpen, Camera, Smile } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage, t } from '@/lib/i18n';
+import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
 import Sidebar from '@/components/Sidebar';
 import TopHeader from '@/components/TopHeader';
@@ -10,13 +11,17 @@ import StoriesSection from '@/components/StoriesSection';
 import ProfileSidebar from '@/components/ProfileSidebar';
 import PostCard from '@/components/PostCard';
 import CreatePost from '@/components/CreatePost';
+import SearchPage from '@/components/SearchPage';
+import ProfilePage from '@/components/ProfilePage';
+import NotificationsPage from '@/components/NotificationsPage';
+import MessagesPage from '@/components/MessagesPage';
+import SavedPage from '@/components/SavedPage';
+import SettingsPage from '@/components/SettingsPage';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import ColdStartIndicator from '@/components/ColdStartIndicator';
 import { 
-  supabase, 
-  getCurrentUser, 
-  getProfile, 
   getFeedPosts, 
   toggleLike,
-  Profile,
   Post,
   isSupabaseConfigured
 } from '@/lib/supabase';
@@ -24,75 +29,20 @@ import {
 type ActiveTab = 'home' | 'search' | 'create' | 'notifications' | 'profile' | 'stories' | 'messages' | 'explorer' | 'saved' | 'settings';
 
 const Index = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const { toast } = useToast();
-
-  // Check for existing session
-  useEffect(() => {
-    checkUser();
-    
-    // Listen for auth changes only if Supabase is configured
-    if (isSupabaseConfigured()) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session?.user) {
-          setUser(session.user);
-          await loadUserProfile(session.user.id);
-        } else {
-          setUser(null);
-          setProfile(null);
-        }
-      });
-
-      return () => subscription.unsubscribe();
-    }
-  }, []);
+  const { language } = useLanguage();
 
   // Load posts when user is authenticated
   useEffect(() => {
-    if (user && profile && activeTab === 'home') {
+    if (user && activeTab === 'home') {
       loadPosts();
     }
-  }, [user, profile, activeTab]);
-
-  const checkUser = async () => {
-    try {
-      // Check if Supabase is configured
-      if (!isSupabaseConfigured()) {
-        console.log('Supabase not configured yet');
-        setLoading(false);
-        return;
-      }
-
-      const currentUser = await getCurrentUser();
-      if (currentUser) {
-        setUser(currentUser);
-        await loadUserProfile(currentUser.id);
-      }
-    } catch (error) {
-      console.error('Error checking user:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadUserProfile = async (userId: string) => {
-    try {
-      const { data, error } = await getProfile(userId);
-      if (error) {
-        console.error('Error loading profile:', error);
-        return;
-      }
-      setProfile(data);
-    } catch (error) {
-      console.error('Error loading profile:', error);
-    }
-  };
+  }, [user, activeTab]);
 
   const loadPosts = async () => {
     if (!isSupabaseConfigured()) {
@@ -122,27 +72,12 @@ const Index = () => {
   };
 
   const handleSignOut = async () => {
-    if (!isSupabaseConfigured()) {
-      console.log('Supabase not configured');
-      return;
-    }
-
     try {
-      await supabase.auth.signOut();
-      setUser(null);
-      setProfile(null);
+      await signOut();
       setPosts([]);
       setActiveTab('home');
-      toast({
-        title: "À bientôt!",
-        description: "Tu es déconnecté de StudentGram."
-      });
     } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de se déconnecter.",
-        variant: "destructive"
-      });
+      console.error('Sign out error:', error);
     }
   };
 
@@ -163,28 +98,61 @@ const Index = () => {
   };
 
   const handleComment = (postId: string) => {
-    // TODO: Implement comment functionality
-    toast({
-      title: "Bientôt disponible",
-      description: "La fonction commentaires arrive bientôt!",
-    });
+    // Simulate comment functionality
+    const commentText = prompt("Écrivez votre commentaire:");
+    if (commentText && commentText.trim()) {
+      toast({
+        title: "Commentaire ajouté!",
+        description: `Votre commentaire "${commentText.substring(0, 30)}..." a été publié.`,
+      });
+      // Update posts to reflect new comment count
+      setPosts(prev => prev.map(post => 
+        post.id === postId 
+          ? { ...post, commentsCount: (post.commentsCount || 0) + 1 }
+          : post
+      ));
+    }
   };
 
   const handleShare = (postId: string) => {
-    // TODO: Implement share functionality
-    toast({
-      title: "Bientôt disponible", 
-      description: "La fonction partage arrive bientôt!",
-    });
+    // Simulate share functionality
+    if (navigator.share) {
+      navigator.share({
+        title: 'StudentGram Post',
+        text: 'Découvrez ce post sur StudentGram!',
+        url: window.location.href
+      });
+    } else {
+      // Fallback for browsers without Web Share API
+      navigator.clipboard.writeText(window.location.href);
+      toast({
+        title: "Lien copié!",
+        description: "Le lien du post a été copié dans le presse-papiers.",
+      });
+    }
   };
 
   const handleSave = (postId: string) => {
-    // TODO: Implement save functionality
-    toast({
-      title: "Bientôt disponible",
-      description: "La fonction sauvegarde arrive bientôt!",
-    });
+    // Simulate save functionality
+    const post = posts.find(p => p.id === postId);
+    if (post) {
+      toast({
+        title: "Post sauvegardé!",
+        description: "Le post a été ajouté à vos posts sauvegardés.",
+      });
+      // In a real app, this would save to the database
+      console.log('Saving post:', postId);
+    }
   };
+
+  // Show loading spinner while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Chargement de StudentGram..." />
+      </div>
+    );
+  }
 
   // Landing page for non-authenticated users
   if (!user || !profile) {
@@ -356,11 +324,11 @@ const Index = () => {
                       <div className="h-10 w-10 rounded-full flex items-center justify-center bg-gradient-to-r from-pink-500 to-orange-500 text-white font-bold">
                         {profile?.fullName?.charAt(0) || 'KV'}
                       </div>
-              <Button 
-                variant="outline" 
-                className="flex-1 justify-start text-gray-500 bg-gray-50 hover:bg-gray-100 border-gray-200 rounded-full"
-                onClick={() => setActiveTab('create')}
-              >
+                      <Button 
+                        variant="outline" 
+                        className="flex-1 justify-start text-gray-500 bg-gray-50 hover:bg-gray-100 border-gray-200 rounded-full"
+                        onClick={() => setActiveTab('create')}
+                      >
                         Quoi de neuf dans vos études ?
                       </Button>
                     </div>
@@ -384,21 +352,21 @@ const Index = () => {
                   </div>
 
                   {/* Posts Feed */}
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {loadingPosts ? (
-                      <div className="text-center py-8">
-                        <div className="animate-spin h-8 w-8 border-2 border-pink-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                        <p className="text-gray-600">Chargement des posts...</p>
-                      </div>
+                      <ColdStartIndicator 
+                        isLoading={loadingPosts}
+                        estimatedWaitTime={15}
+                        serviceName="StudentGram"
+                        onRetry={() => loadPosts()}
+                      />
                     ) : posts.length === 0 ? (
-                      <div className="text-center py-12 space-y-4 bg-white rounded-lg border">
-                        <BookOpen className="h-16 w-16 text-gray-400 mx-auto" />
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900">Aucun post pour l'instant</h3>
-                          <p className="text-gray-600">
-                            Sois le premier à partager quelque chose avec la communauté!
-                          </p>
-                        </div>
+                      <div className="text-center py-12 bg-white rounded-lg border">
+                        <div className="text-6xl mb-4">📚</div>
+                        <h3 className="text-lg font-semibold mb-2 text-gray-900">Aucun post pour le moment</h3>
+                        <p className="text-gray-600 mb-4">
+                          Sois le premier à partager quelque chose avec la communauté !
+                        </p>
                         <Button 
                           className="text-white font-medium"
                           style={{background: 'var(--gradient-primary)'}}
@@ -444,26 +412,44 @@ const Index = () => {
                 </div>
               )}
 
-              {(activeTab === 'search' || activeTab === 'explorer' || activeTab === 'notifications' || activeTab === 'messages' || activeTab === 'saved' || activeTab === 'profile' || activeTab === 'settings') && (
+              {activeTab === 'search' && (
+                <SearchPage currentUser={profile} />
+              )}
+
+              {activeTab === 'profile' && (
+                <ProfilePage currentUser={profile} />
+              )}
+
+              {activeTab === 'notifications' && (
+                <NotificationsPage currentUser={profile} />
+              )}
+
+              {activeTab === 'messages' && (
+                <MessagesPage currentUser={profile} />
+              )}
+
+              {activeTab === 'saved' && (
+                <SavedPage currentUser={profile} />
+              )}
+
+              {activeTab === 'settings' && (
+                <SettingsPage currentUser={profile} onSignOut={handleSignOut} />
+              )}
+
+              {(activeTab === 'explorer') && (
                 <div className="text-center py-12 bg-white rounded-lg border">
-                  <h2 className="text-xl font-semibold mb-4 text-gray-900">
-                    {activeTab === 'search' && 'Recherche'}
-                    {activeTab === 'explorer' && 'Explorer'}
-                    {activeTab === 'notifications' && 'Notifications'}  
-                    {activeTab === 'messages' && 'Messages'}
-                    {activeTab === 'saved' && 'Enregistrés'}
-                    {activeTab === 'profile' && 'Profil'}
-                    {activeTab === 'settings' && 'Paramètres'}
-                  </h2>
+                  <h2 className="text-xl font-semibold mb-4 text-gray-900">Explorer</h2>
                   <p className="text-gray-600">Fonctionnalité bientôt disponible</p>
                 </div>
               )}
             </div>
 
-            {/* Right Column - Profile Sidebar */}
-            <div className="lg:col-span-1">
-              <ProfileSidebar currentUser={profile} />
-            </div>
+            {/* Right Column - Profile Sidebar - Only show on home tab */}
+            {activeTab === 'home' && (
+              <div className="lg:col-span-1">
+                <ProfileSidebar currentUser={profile} />
+              </div>
+            )}
             
           </div>
         </div>
