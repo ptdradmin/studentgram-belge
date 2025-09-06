@@ -68,7 +68,10 @@ describe('MessagingSystem', () => {
   };
 
   beforeEach(() => {
-    vi.useFakeTimers();
+    // Réinitialiser tous les mocks avant chaque test
+    vi.resetAllMocks();
+    
+    // Configurer les mocks avec des implémentations par défaut
     mockGetConversations.mockResolvedValue(mockConversations);
     mockGetMessages.mockResolvedValue(mockMessages);
     mockSendMessage.mockResolvedValue({ success: true });
@@ -76,8 +79,7 @@ describe('MessagingSystem', () => {
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
-    vi.useRealTimers();
+    // Nettoyer seulement les appels et instances
     vi.clearAllMocks();
   });
 
@@ -88,10 +90,6 @@ describe('MessagingSystem', () => {
 
   it('renders conversations list after loading', async () => {
     render(<MessagingSystem {...defaultProps} />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
 
     expect(await screen.findByText('Alice Martin')).toBeInTheDocument();
     expect(screen.getByText('Bob Dupont')).toBeInTheDocument();
@@ -99,10 +97,6 @@ describe('MessagingSystem', () => {
 
   it('displays unread message count badges', async () => {
     render(<MessagingSystem {...defaultProps} />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
 
     const conversationList = await screen.findByTestId('conversation-list');
     const aliceConversation = await screen.findByText('Alice Martin');
@@ -112,10 +106,6 @@ describe('MessagingSystem', () => {
 
   it('shows online status indicators', async () => {
     render(<MessagingSystem {...defaultProps} />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
 
     const conversationList = await screen.findByTestId('conversation-list');
     const onlineIndicators = within(conversationList).getAllByTestId('online-indicator');
@@ -124,13 +114,14 @@ describe('MessagingSystem', () => {
 
   it('filters conversations based on search query', async () => {
     render(<MessagingSystem {...defaultProps} />);
+
+    await screen.findByText('Alice Martin'); // Attendre que les conversations se chargent
+    
+    const searchInput = screen.getByPlaceholderText('Search conversations');
     
     await act(async () => {
-      vi.runAllTimers();
+      fireEvent.change(searchInput, { target: { value: 'Alice' } });
     });
-
-    const searchInput = screen.getByPlaceholderText('Search conversations');
-    fireEvent.change(searchInput, { target: { value: 'Alice' } });
     
     expect(screen.getByText('Alice Martin')).toBeInTheDocument();
     expect(screen.queryByText('Bob Dupont')).not.toBeInTheDocument();
@@ -139,21 +130,18 @@ describe('MessagingSystem', () => {
   it('shows empty state when no conversation is selected', async () => {
     render(<MessagingSystem {...defaultProps} />);
     
-    await act(async () => {
-      vi.runAllTimers();
-    });
-    
+    await screen.findByText('Alice Martin'); // Attendre que les conversations se chargent
     expect(screen.getByText('Select a conversation')).toBeInTheDocument();
   });
 
   it('loads and displays messages when conversation is selected', async () => {
     render(<MessagingSystem {...defaultProps} />);
+
+    const aliceConversation = await screen.findByText('Alice Martin');
     
     await act(async () => {
-      vi.runAllTimers();
+      fireEvent.click(aliceConversation);
     });
-
-    fireEvent.click(await screen.findByText('Alice Martin'));
 
     const chatPanel = await screen.findByTestId('chat-panel');
     expect(within(chatPanel).getByText('Salut ! Ça va ?')).toBeInTheDocument();
@@ -162,18 +150,24 @@ describe('MessagingSystem', () => {
 
   it('sends new message', async () => {
     render(<MessagingSystem {...defaultProps} />);
+
+    const aliceConversation = await screen.findByText('Alice Martin');
     
     await act(async () => {
-      vi.runAllTimers();
+      fireEvent.click(aliceConversation);
     });
 
-    fireEvent.click(await screen.findByText('Alice Martin'));
-
     const messageInput = await screen.findByPlaceholderText('Type a message...');
-    fireEvent.change(messageInput, { target: { value: 'Test message' } });
+    
+    await act(async () => {
+      fireEvent.change(messageInput, { target: { value: 'Test message' } });
+    });
 
     const sendButton = screen.getByRole('button', { name: /send/i });
-    fireEvent.click(sendButton);
+    
+    await act(async () => {
+      fireEvent.click(sendButton);
+    });
 
     await waitFor(() => {
       expect(mockSendMessage).toHaveBeenCalledWith('1', 'Test message');
@@ -187,16 +181,19 @@ describe('MessagingSystem', () => {
 
   it('sends message on Enter key press', async () => {
     render(<MessagingSystem {...defaultProps} />);
+
+    const aliceConversation = await screen.findByText('Alice Martin');
     
     await act(async () => {
-      vi.runAllTimers();
+      fireEvent.click(aliceConversation);
     });
 
-    fireEvent.click(await screen.findByText('Alice Martin'));
-
     const messageInput = await screen.findByPlaceholderText('Type a message...');
-    fireEvent.change(messageInput, { target: { value: 'Test message on enter' } });
-    fireEvent.keyDown(messageInput, { key: 'Enter', code: 'Enter' });
+    
+    await act(async () => {
+      fireEvent.change(messageInput, { target: { value: 'Test message on enter' } });
+      fireEvent.keyDown(messageInput, { key: 'Enter', code: 'Enter' });
+    });
 
     await waitFor(() => {
       expect(mockSendMessage).toHaveBeenCalledWith('1', 'Test message on enter');
@@ -205,16 +202,19 @@ describe('MessagingSystem', () => {
 
   it('does not send empty messages', async () => {
     render(<MessagingSystem {...defaultProps} />);
+
+    const aliceConversation = await screen.findByText('Alice Martin');
     
     await act(async () => {
-      vi.runAllTimers();
+      fireEvent.click(aliceConversation);
     });
-
-    fireEvent.click(await screen.findByText('Alice Martin'));
 
     const sendButton = await screen.findByRole('button', { name: /send/i });
     expect(sendButton).toBeDisabled();
-    fireEvent.click(sendButton);
+    
+    await act(async () => {
+      fireEvent.click(sendButton);
+    });
 
     expect(mockSendMessage).not.toHaveBeenCalled();
   });
@@ -222,23 +222,24 @@ describe('MessagingSystem', () => {
   it('calls onConversationSelect when conversation is clicked', async () => {
     const onConversationSelect = vi.fn();
     render(<MessagingSystem {...defaultProps} onConversationSelect={onConversationSelect} />);
+
+    const aliceConversation = await screen.findByText('Alice Martin');
     
     await act(async () => {
-      vi.runAllTimers();
+      fireEvent.click(aliceConversation);
     });
-
-    fireEvent.click(await screen.findByText('Alice Martin'));
+    
     expect(onConversationSelect).toHaveBeenCalledWith('1');
   });
 
   it('displays conversation header with participant info', async () => {
     render(<MessagingSystem {...defaultProps} />);
+
+    const aliceConversation = await screen.findByText('Alice Martin');
     
     await act(async () => {
-      vi.runAllTimers();
+      fireEvent.click(aliceConversation);
     });
-
-    fireEvent.click(await screen.findByText('Alice Martin'));
 
     const chatPanel = await screen.findByTestId('chat-panel');
     expect(within(chatPanel).getByText('Alice Martin')).toBeInTheDocument();
@@ -248,11 +249,11 @@ describe('MessagingSystem', () => {
   it('shows last seen time for offline users', async () => {
     render(<MessagingSystem {...defaultProps} />);
 
+    const bobConversation = await screen.findByText('Bob Dupont');
+    
     await act(async () => {
-      vi.runAllTimers();
+      fireEvent.click(bobConversation);
     });
-
-    fireEvent.click(await screen.findByText('Bob Dupont'));
 
     const chatPanel = await screen.findByTestId('chat-panel');
     expect(within(chatPanel).getByText(/Active 30 minutes ago/)).toBeInTheDocument();
@@ -261,18 +262,24 @@ describe('MessagingSystem', () => {
   it('handles message send error gracefully', async () => {
     mockSendMessage.mockRejectedValue(new Error('Send Error'));
     render(<MessagingSystem {...defaultProps} />);
+
+    const aliceConversation = await screen.findByText('Alice Martin');
     
     await act(async () => {
-      vi.runAllTimers();
+      fireEvent.click(aliceConversation);
     });
 
-    fireEvent.click(await screen.findByText('Alice Martin'));
-
     const messageInput = await screen.findByPlaceholderText('Type a message...');
-    fireEvent.change(messageInput, { target: { value: 'Test message' } });
+    
+    await act(async () => {
+      fireEvent.change(messageInput, { target: { value: 'Test message' } });
+    });
 
     const sendButton = screen.getByRole('button', { name: /send/i });
-    fireEvent.click(sendButton);
+    
+    await act(async () => {
+      fireEvent.click(sendButton);
+    });
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
@@ -286,28 +293,30 @@ describe('MessagingSystem', () => {
   it('handles conversation loading error', async () => {
     mockGetConversations.mockRejectedValue(new Error('Load Error'));
     render(<MessagingSystem {...defaultProps} />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
 
     expect(await screen.findByText(/Error loading conversations/i)).toBeInTheDocument();
   });
 
   it('clears input after sending message', async () => {
     render(<MessagingSystem {...defaultProps} />);
+
+    const aliceConversation = await screen.findByText('Alice Martin');
     
     await act(async () => {
-      vi.runAllTimers();
+      fireEvent.click(aliceConversation);
     });
 
-    fireEvent.click(await screen.findByText('Alice Martin'));
-
     const messageInput = await screen.findByPlaceholderText('Type a message...');
-    fireEvent.change(messageInput, { target: { value: 'Test message' } });
+    
+    await act(async () => {
+      fireEvent.change(messageInput, { target: { value: 'Test message' } });
+    });
     
     const sendButton = screen.getByRole('button', { name: /send/i });
-    fireEvent.click(sendButton);
+    
+    await act(async () => {
+      fireEvent.click(sendButton);
+    });
     
     await waitFor(() => {
       expect(messageInput).toHaveValue('');
@@ -316,12 +325,12 @@ describe('MessagingSystem', () => {
 
   it('displays message timestamps correctly', async () => {
     render(<MessagingSystem {...defaultProps} />);
+
+    const aliceConversation = await screen.findByText('Alice Martin');
     
     await act(async () => {
-      vi.runAllTimers();
+      fireEvent.click(aliceConversation);
     });
-
-    fireEvent.click(await screen.findByText('Alice Martin'));
 
     await waitFor(() => {
       const timeElements = screen.getAllByText(/\d{2}:\d{2}/);
@@ -331,12 +340,12 @@ describe('MessagingSystem', () => {
 
   it('shows action buttons in chat header', async () => {
     render(<MessagingSystem {...defaultProps} />);
+
+    const aliceConversation = await screen.findByText('Alice Martin');
     
     await act(async () => {
-      vi.runAllTimers();
+      fireEvent.click(aliceConversation);
     });
-
-    fireEvent.click(await screen.findByText('Alice Martin'));
 
     const chatPanel = await screen.findByTestId('chat-panel');
     const buttons = within(chatPanel).getAllByRole('button');

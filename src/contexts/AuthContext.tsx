@@ -56,6 +56,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const handleSignIn = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      // Check for admin credentials first
+      const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
+      const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD;
+      
+      if (email === adminEmail && password === adminPassword) {
+        // Create admin user object
+        const adminUser = {
+          id: 'admin-001',
+          email: adminEmail,
+          user_metadata: {
+            full_name: 'Administrator',
+            role: 'admin'
+          },
+          role: 'admin'
+        };
+        
+        // Update SWR cache with admin user
+        mutate({ user: adminUser, profile: { ...adminUser, role: 'admin' } }, false);
+        
+        toast({
+          title: "Connexion administrateur réussie!",
+          description: "Bienvenue dans l'interface d'administration.",
+        });
+        
+        return { success: true };
+      }
+      
+      // Regular user authentication
       const result = await signInWithCookies(email, password);
       
       if (!result.success) {

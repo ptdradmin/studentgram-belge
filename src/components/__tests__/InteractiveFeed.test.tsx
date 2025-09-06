@@ -85,11 +85,12 @@ const mockPosts = [
 
 describe('InteractiveFeed', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    // Réinitialiser tous les mocks avant chaque test
+    vi.resetAllMocks();
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    // Nettoyer seulement les appels et instances
     vi.clearAllMocks();
   });
 
@@ -124,7 +125,6 @@ describe('InteractiveFeed', () => {
     
     await act(async () => {
       fireEvent.click(likeButton);
-      vi.runAllTimers();
     });
 
     // Verify the like action was triggered (component handles internally)
@@ -141,7 +141,6 @@ describe('InteractiveFeed', () => {
     
     await act(async () => {
       fireEvent.click(saveButton);
-      vi.runAllTimers();
     });
 
     // Verify the save action was triggered (component handles internally)
@@ -158,10 +157,9 @@ describe('InteractiveFeed', () => {
     
     await act(async () => {
       fireEvent.click(commentButton);
-      vi.runAllTimers();
     });
     
-    expect(screen.getByTestId('comment-skeleton')).toBeInTheDocument();
+    expect(await screen.findByTestId('comment-skeleton')).toBeInTheDocument();
   });
 
   it('should handle comment toggle', async () => {
@@ -175,13 +173,10 @@ describe('InteractiveFeed', () => {
     
     await act(async () => {
       fireEvent.click(commentButton);
-      vi.runAllTimers();
     });
     
     // Should show comment section
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/write.*comment/i)).toBeInTheDocument();
-    });
+    expect(await screen.findByPlaceholderText(/write.*comment/i)).toBeInTheDocument();
   });
 
   it('adds new comment', async () => {
@@ -195,17 +190,18 @@ describe('InteractiveFeed', () => {
     
     await act(async () => {
       fireEvent.click(commentButton);
-      vi.runAllTimers();
     });
 
     const commentInput = await screen.findByPlaceholderText(/write.*comment/i);
-    fireEvent.change(commentInput, { target: { value: 'Nice post!' } });
+    
+    await act(async () => {
+      fireEvent.change(commentInput, { target: { value: 'Nice post!' } });
+    });
 
     const postButton = screen.getByRole('button', { name: /post.*comment/i });
     
     await act(async () => {
       fireEvent.click(postButton);
-      vi.runAllTimers();
     });
 
     // Verify the comment was added (component handles internally)
@@ -258,7 +254,6 @@ describe('InteractiveFeed', () => {
     
     await act(async () => {
       fireEvent.click(shareButton);
-      vi.runAllTimers();
     });
 
     expect(mockShare).toHaveBeenCalledWith({

@@ -52,15 +52,19 @@ const mockPosts = [
 
 describe('UserProfile', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    // Réinitialiser tous les mocks avant chaque test
+    vi.resetAllMocks();
+    
+    // Configurer les mocks avec des implémentations par défaut
     (api.getUserProfile as vi.Mock).mockResolvedValue(mockUser);
-    (api.getUserPosts as vi.Mock).mockResolvedValue(mockPosts);
+    (api.getUserPosts as vi.Mock).mockResolvedValue({ success: true, data: mockPosts });
+    (api.followUser as vi.Mock).mockResolvedValue({ success: true });
+    (api.unfollowUser as vi.Mock).mockResolvedValue({ success: true });
     (useToast as vi.Mock).mockReturnValue({ toast: mockToast });
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
-    vi.useRealTimers();
+    // Nettoyer seulement les appels et instances, pas les implémentations
     vi.clearAllMocks();
   });
 
@@ -71,11 +75,8 @@ describe('UserProfile', () => {
 
   it('renders profile data after loading', async () => {
     render(<UserProfile userId="test-user" />);
-
-    await act(async () => {
-      vi.runAllTimers();
-    });
     
+    // Attendre que les données se chargent sans fake timers
     expect(await screen.findByText('Marie Dubois')).toBeInTheDocument();
     expect(screen.getByText('@marie_student')).toBeInTheDocument();
   });
@@ -83,29 +84,17 @@ describe('UserProfile', () => {
   it('displays verified badge for verified users', async () => {
     render(<UserProfile userId="test-user" />);
     
-    await act(async () => {
-      vi.runAllTimers();
-    });
-    
     expect(await screen.findByText('✓ Verified')).toBeInTheDocument();
   });
 
   it('shows user bio with proper formatting', async () => {
     render(<UserProfile userId="test-user" />);
     
-    await act(async () => {
-      vi.runAllTimers();
-    });
-    
     expect(await screen.findByText(/🎓 Étudiante en informatique/)).toBeInTheDocument();
   });
 
   it('displays user stats correctly', async () => {
     render(<UserProfile userId="test-user" />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
     
     expect(await screen.findByText('127')).toBeInTheDocument();
     expect(screen.getByText('892')).toBeInTheDocument();
@@ -116,10 +105,6 @@ describe('UserProfile', () => {
     (api.getUserProfile as vi.Mock).mockResolvedValue({ ...mockUser, id: 'other-user' });
     render(<UserProfile userId="other-user" currentUserId="current_user" />);
     
-    await act(async () => {
-      vi.runAllTimers();
-    });
-    
     expect(await screen.findByRole('button', { name: /follow/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /message/i })).toBeInTheDocument();
   });
@@ -127,24 +112,18 @@ describe('UserProfile', () => {
   it('shows edit profile button for own profile', async () => {
     render(<UserProfile userId="test-user" currentUserId="test-user" />);
     
-    await act(async () => {
-      vi.runAllTimers();
-    });
-    
     expect(await screen.findByRole('button', { name: /edit profile/i })).toBeInTheDocument();
   });
 
   it('handles follow button click', async () => {
     (api.getUserProfile as vi.Mock).mockResolvedValue({ ...mockUser, id: 'other-user', isFollowing: false });
-    (api.followUser as vi.Mock).mockResolvedValue({ success: true });
     render(<UserProfile userId="other-user" currentUserId="current_user" />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
 
     const followButton = await screen.findByRole('button', { name: /follow/i });
-    fireEvent.click(followButton);
+    
+    await act(async () => {
+      fireEvent.click(followButton);
+    });
 
     expect(api.followUser).toHaveBeenCalledWith('other-user');
     expect(await screen.findByRole('button', { name: /following/i })).toBeInTheDocument();
@@ -152,16 +131,14 @@ describe('UserProfile', () => {
 
   it('updates follower count when following', async () => {
     (api.getUserProfile as vi.Mock).mockResolvedValue({ ...mockUser, id: 'other-user', isFollowing: false });
-    (api.followUser as vi.Mock).mockResolvedValue({ success: true });
     render(<UserProfile userId="other-user" currentUserId="current_user" />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
 
     expect(await screen.findByText('892')).toBeInTheDocument();
     const followButton = screen.getByRole('button', { name: /follow/i });
-    fireEvent.click(followButton);
+    
+    await act(async () => {
+      fireEvent.click(followButton);
+    });
 
     expect(await screen.findByText('893')).toBeInTheDocument();
   });
@@ -170,22 +147,18 @@ describe('UserProfile', () => {
     const onMessage = vi.fn();
     (api.getUserProfile as vi.Mock).mockResolvedValue({ ...mockUser, id: 'other-user' });
     render(<UserProfile userId="other-user" currentUserId="current_user" onMessage={onMessage} />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
 
     const messageButton = await screen.findByRole('button', { name: /message/i });
-    fireEvent.click(messageButton);
+    
+    await act(async () => {
+      fireEvent.click(messageButton);
+    });
+    
     expect(onMessage).toHaveBeenCalledWith('other-user');
   });
 
   it('displays location and website links', async () => {
     render(<UserProfile userId="test-user" />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
     
     expect(await screen.findByText('Bruxelles, Belgique')).toBeInTheDocument();
     expect(screen.getByText('marie-portfolio.be')).toBeInTheDocument();
@@ -194,38 +167,37 @@ describe('UserProfile', () => {
   it('formats join date correctly', async () => {
     render(<UserProfile userId="test-user" />);
     
-    await act(async () => {
-      vi.runAllTimers();
-    });
-    
     expect(await screen.findByText(/Joined.*septembre 2023/i)).toBeInTheDocument();
   });
 
   it('switches between tabs correctly', async () => {
     render(<UserProfile userId="test-user" />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
 
     const mediaTab = await screen.findByRole('tab', { name: /media/i });
-    fireEvent.click(mediaTab);
+    
+    await act(async () => {
+      fireEvent.click(mediaTab);
+    });
+    
     expect(await screen.findByTestId('media-tab-content')).toBeInTheDocument();
 
     const postsTab = screen.getByRole('tab', { name: /posts/i });
-    fireEvent.click(postsTab);
+    
+    await act(async () => {
+      fireEvent.click(postsTab);
+    });
+    
     expect(await screen.findByTestId('posts-tab-content')).toBeInTheDocument();
   });
 
   it('shows about tab with profile details', async () => {
     render(<UserProfile userId="test-user" />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
 
     const aboutTab = await screen.findByRole('tab', { name: /about/i });
-    fireEvent.click(aboutTab);
+    
+    await act(async () => {
+      fireEvent.click(aboutTab);
+    });
     
     expect(await screen.findByText('Bio')).toBeInTheDocument();
     expect(screen.getByText('Details')).toBeInTheDocument();
@@ -234,20 +206,12 @@ describe('UserProfile', () => {
   it('handles profile loading error', async () => {
     (api.getUserProfile as vi.Mock).mockRejectedValue(new Error('API Error'));
     render(<UserProfile userId="test-user" />);
-
-    await act(async () => {
-      vi.runAllTimers();
-    });
     
     expect(await screen.findByText(/Error loading profile/i)).toBeInTheDocument();
   });
 
   it('renders interactive feed in posts tab', async () => {
     render(<UserProfile userId="test-user" />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
 
     expect(await screen.findByTestId('interactive-feed')).toBeInTheDocument();
   });
@@ -255,19 +219,11 @@ describe('UserProfile', () => {
   it('shows cover image edit button for own profile', async () => {
     render(<UserProfile userId="test-user" currentUserId="test-user" />);
     
-    await act(async () => {
-      vi.runAllTimers();
-    });
-    
     expect(await screen.findByText('Edit Cover')).toBeInTheDocument();
   });
 
   it('displays website as clickable link', async () => {
     render(<UserProfile userId="test-user" />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
     
     const websiteLink = await screen.findByText('marie-portfolio.be');
     expect(websiteLink.closest('a')).toHaveAttribute('href', 'https://marie-portfolio.be');
@@ -278,13 +234,12 @@ describe('UserProfile', () => {
     (api.getUserProfile as vi.Mock).mockResolvedValue({ ...mockUser, id: 'other-user', isFollowing: false });
     (api.followUser as vi.Mock).mockRejectedValue(new Error('Follow error'));
     render(<UserProfile userId="other-user" currentUserId="current_user" />);
-    
-    await act(async () => {
-      vi.runAllTimers();
-    });
 
     const followButton = await screen.findByRole('button', { name: /follow/i });
-    fireEvent.click(followButton);
+    
+    await act(async () => {
+      fireEvent.click(followButton);
+    });
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({

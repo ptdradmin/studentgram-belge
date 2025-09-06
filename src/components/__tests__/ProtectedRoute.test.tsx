@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import ProtectedRoute from '../ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/lib/i18n';
@@ -30,6 +30,15 @@ const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 describe('ProtectedRoute', () => {
   beforeEach(() => {
+    // Réinitialiser tous les mocks avant chaque test
+    vi.resetAllMocks();
+    
+    // Nettoyer les appels précédents
+    vi.clearAllMocks();
+  });
+  
+  afterEach(() => {
+    // Nettoyer après chaque test
     vi.clearAllMocks();
   });
 
@@ -166,7 +175,7 @@ describe('ProtectedRoute', () => {
     });
   });
 
-  it('handles user without profile gracefully', () => {
+  it('handles user without profile gracefully', async () => {
     (useAuth as any).mockReturnValue({
       user: { id: '1', email: 'test@example.com' },
       profile: null,
@@ -182,7 +191,7 @@ describe('ProtectedRoute', () => {
     );
 
     // Should default to 'user' role and redirect since 'user' is not in ['admin']
-    waitFor(() => {
+    await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
     });
   });

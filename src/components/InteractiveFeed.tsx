@@ -5,9 +5,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { OptimizedImage } from '@/components/OptimizedImage';
+import OptimizedImage from '@/components/OptimizedImage';
 import { FeedSkeleton, CommentSkeleton } from '@/components/SkeletonLoaders';
 import { useTranslation } from '@/lib/i18n';
+import { validatePostData, validateCommentData, safeFilter, sanitizeString } from '@/lib/validation';
 
 interface Comment {
   id: string;
@@ -51,13 +52,17 @@ export const InteractiveFeed: React.FC<InteractiveFeedProps> = ({
 }) => {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const [localPosts, setLocalPosts] = useState<Post[]>(posts);
+  
+  // Validation et filtrage sécurisé des posts
+  const validatedPosts = safeFilter<Post>(posts, validatePostData);
+  const [localPosts, setLocalPosts] = useState<Post[]>(validatedPosts);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [loadingComments, setLoadingComments] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    setLocalPosts(posts);
+    const validatedPosts = safeFilter<Post>(posts, validatePostData);
+    setLocalPosts(validatedPosts);
   }, [posts]);
 
   const handleLike = async (postId: string) => {
@@ -224,76 +229,88 @@ export const InteractiveFeed: React.FC<InteractiveFeedProps> = ({
   };
 
   const handleAddComment = async (postId: string) => {
-    const content = commentInputs[postId]?.trim();
-    if (!content) return;
-
-    const newComment: Comment = {
-      id: Date.now().toString(),
-      userId: 'current_user',
-      username: 'vous',
-      content,
-      createdAt: new Date().toISOString(),
-      likesCount: 0,
-      isLiked: false
-    };
-
-    // Optimistically add comment
-    setLocalPosts(prev => prev.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          comments: [...(post.comments || []), newComment],
-          commentsCount: post.commentsCount + 1
-        };
-      }
-      return post;
-    }));
-
-    // Clear input
-    setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+    const commentText = sanitizeString(commentInputs[postId]?.trim(), 500);
+    if (!commentText) return;
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      toast({
-        title: t('success'),
-        description: t('comment_added_successfully'),
-      });
-    } catch (error) {
-      // Revert on error
+      // Simuler l'ajout d'un commentaire
+      const newComment: Comment = {
+        id: Date.now().toString(),
+        userId: 'current-user',
+        username: 'Vous',
+        content: commentText,
+        createdAt: new Date().toISOString(),
+        likesCount: 0,
+        isLiked: false
+      };
+
+      // Valider le commentaire avant de l'ajouter
+      const validation = validateCommentData(newComment);
+      if (!validation.isValid) {
+        console.warn('Invalid comment data:', validation.errors);
+        toast({
+          title: 'Commentaire invalide',
+          description: validation.errors[0],
+          variant: 'destructive'
+        });
+        return;
+      }
+
       setLocalPosts(prev => prev.map(post => {
         if (post.id === postId) {
           return {
             ...post,
-            comments: post.comments?.filter(c => c.id !== newComment.id) || [],
-            commentsCount: post.commentsCount - 1
+            comments: [...(post.comments || []), newComment],
+            commentsCount: (post.commentsCount || 0) + 1
           };
         }
         return post;
       }));
+
+      // Vider le champ de commentaire
+      setCommentInputs(prev => ({
+        ...prev,
+        [postId]: ''
+      }));
+
       toast({
-        title: t('error'),
-        description: t('failed_to_add_comment'),
-        variant: 'destructive',
+        title: 'Commentaire ajouté avec succès',
+        variant: 'default'
+      });
+
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: 'Échec de l\'ajout du commentaire',
+        variant: 'destructive'
       });
     }
   };
 
   const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return t('just_now');
-    if (diffInMinutes < 60) return t('minutes_ago', { count: diffInMinutes });
-    
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return t('hours_ago', { count: diffInHours });
-    
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return t('days_ago', { count: diffInDays });
-    
-    return date.toLocaleDateString();
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Date invalide';
+      }
+      
+      const now = new Date();
+      const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+      
+      if (diffInMinutes < 1) return 'À l\'instant';
+      if (diffInMinutes < 60) return `Il y a ${diffInMinutes} min`;
+      
+      const diffInHours = Math.floor(diffInMinutes / 60);
+      if (diffInHours < 24) return `Il y a ${diffInHours}h`;
+      
+      const diffInDays = Math.floor(diffInHours / 24);
+      if (diffInDays < 7) return `Il y a ${diffInDays}j`;
+      
+      return date.toLocaleDateString();
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Date invalide';
+    }
   };
 
   if (loading && localPosts.length === 0) {
@@ -308,12 +325,12 @@ export const InteractiveFeed: React.FC<InteractiveFeedProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <Avatar>
-                  <AvatarImage src={post.avatar} alt={post.username} />
-                  <AvatarFallback>{post.username.charAt(0).toUpperCase()}</AvatarFallback>
+                  <AvatarImage src={post.avatar} alt={post.username || 'User'} />
+                  <AvatarFallback>{post.username?.charAt(0)?.toUpperCase() || 'U'}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-semibold text-sm">{post.username}</p>
-                  <p className="text-xs text-muted-foreground">{formatTimeAgo(post.createdAt)}</p>
+                  <p className="font-semibold text-sm">{post.username || 'Utilisateur anonyme'}</p>
+                  <p className="text-xs text-muted-foreground">{post.createdAt ? formatTimeAgo(post.createdAt) : 'Date inconnue'}</p>
                 </div>
               </div>
               <Button variant="ghost" size="sm">
@@ -324,7 +341,7 @@ export const InteractiveFeed: React.FC<InteractiveFeedProps> = ({
 
           <CardContent className="space-y-4">
             {/* Post content */}
-            <p className="text-sm leading-relaxed">{post.content}</p>
+            <p className="text-sm leading-relaxed">{post.content || 'Contenu non disponible'}</p>
 
             {/* Post image */}
             {post.imageUrl && (
@@ -393,23 +410,23 @@ export const InteractiveFeed: React.FC<InteractiveFeedProps> = ({
                   <CommentSkeleton count={2} />
                 ) : (
                   <>
-                    {post.comments?.map((comment) => (
+                    {post.comments?.filter(comment => comment && comment.id)?.map((comment) => (
                       <div key={comment.id} className="flex items-start space-x-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={comment.avatar} alt={comment.username} />
-                          <AvatarFallback>{comment.username.charAt(0).toUpperCase()}</AvatarFallback>
+                          <AvatarImage src={comment.avatar} alt={comment.username || 'User'} />
+                          <AvatarFallback>{comment.username?.charAt(0)?.toUpperCase() || 'U'}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 space-y-1">
                           <div className="bg-muted rounded-lg p-3">
-                            <p className="font-semibold text-xs">{comment.username}</p>
-                            <p className="text-sm">{comment.content}</p>
+                            <p className="font-semibold text-xs">{comment.username || 'Utilisateur anonyme'}</p>
+                            <p className="text-sm">{comment.content || 'Commentaire non disponible'}</p>
                           </div>
                           <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                            <span>{formatTimeAgo(comment.createdAt)}</span>
+                            <span>{comment.createdAt ? formatTimeAgo(comment.createdAt) : 'Date inconnue'}</span>
                             <button className="hover:underline">
-                              {t('like')} {comment.likesCount > 0 && `(${comment.likesCount})`}
+                              J'aime {(comment.likesCount || 0) > 0 && `(${comment.likesCount})`}
                             </button>
-                            <button className="hover:underline">{t('reply')}</button>
+                            <button className="hover:underline">Répondre</button>
                           </div>
                         </div>
                       </div>
@@ -422,7 +439,7 @@ export const InteractiveFeed: React.FC<InteractiveFeedProps> = ({
                       </Avatar>
                       <div className="flex-1 space-y-2">
                         <Textarea
-                          placeholder={t('write_comment')}
+                          placeholder="Écrivez un commentaire..."
                           value={commentInputs[post.id] || ''}
                           onChange={(e) => setCommentInputs(prev => ({
                             ...prev,
@@ -435,7 +452,7 @@ export const InteractiveFeed: React.FC<InteractiveFeedProps> = ({
                           onClick={() => handleAddComment(post.id)}
                           disabled={!commentInputs[post.id]?.trim()}
                         >
-                          {t('post_comment')}
+                          Publier
                         </Button>
                       </div>
                     </div>
@@ -450,8 +467,8 @@ export const InteractiveFeed: React.FC<InteractiveFeedProps> = ({
       {/* Load more button */}
       {hasMore && (
         <div className="text-center py-4">
-          <Button variant="outline" onClick={onLoadMore} disabled={loading}>
-            {loading ? t('loading') : t('load_more')}
+          <Button onClick={onLoadMore} variant="outline">
+            Charger plus
           </Button>
         </div>
       )}

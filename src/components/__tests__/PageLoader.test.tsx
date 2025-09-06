@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PageLoader, AuthLoader, RouteLoader, InlineLoader, LoadingOverlay } from '../PageLoader';
 import { useTranslation } from '@/lib/i18n';
 
@@ -19,8 +19,12 @@ const mockT = vi.fn((key: string) => {
 
 describe('PageLoader', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     (useTranslation as any).mockReturnValue({ t: mockT });
+  });
+  
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
   it('renders with default props', () => {
@@ -69,7 +73,12 @@ describe('PageLoader', () => {
 
 describe('AuthLoader', () => {
   beforeEach(() => {
+    vi.resetAllMocks();
     (useTranslation as any).mockReturnValue({ t: mockT });
+  });
+  
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
   it('renders with authentication message', () => {
@@ -87,7 +96,12 @@ describe('AuthLoader', () => {
 
 describe('RouteLoader', () => {
   beforeEach(() => {
+    vi.resetAllMocks();
     (useTranslation as any).mockReturnValue({ t: mockT });
+  });
+  
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
   it('renders with loading page message', () => {
